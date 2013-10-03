@@ -318,31 +318,6 @@ sub get_threshold
     }
 }
 
-sub old_get_threshold
-{
-    my $loop = shift;
-    my $alg = "two";
-    my @parm = ( $distance );
-
-    if ( $alg eq "loop" )
-    {
-        return $loop == 1 ? ( @foci / 2 ) : $loop;
-    }
-    elsif ( $alg eq "log" )
-    {
-        return ( $parm[0] == 1 ) ? 1 : log(keys(%$estdmatches))/log($parm[0]);
-    }
-    elsif ( $alg eq "relaxedloop" )
-    {
-        return $loop == 1 ? ( @foci / 2 ) : $loop + 1;
-    }
-    elsif ( $alg eq "two" )
-    {
-    }
-
-    return $loop;
-}
-
 sub main
 {
     #match
