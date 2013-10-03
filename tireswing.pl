@@ -61,7 +61,6 @@ if ( $range ) {
     die "Range must be accompanied by chromosome specification.\n" unless $chr;
     foreach ( $range ) { @range = split "-"; }
     die "Range ($range) must be specified as start-end.\n" unless ( @range == 2 );
-    warn " $range[0] - $range[1]\n";
 }
 
 map { $exclude->{$_} = 1; } @exclude;
