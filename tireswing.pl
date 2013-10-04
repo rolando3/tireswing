@@ -32,7 +32,7 @@ my $help;
 
 sub usage
 {
-    die "perl $0 -f focal_individual [-x exclude_individual] [-d distance] [-o s|p] [-keep|nokeep] [-new|nonew] [-max maxmatches] [-chr chromosome [-range range]] [-hide] filelist\n";
+    die "perl $0 -f focal_individual [-x exclude_individual] [-d distance] [-o s|p] [-keep|nokeep] [-new|nonew] [-max maxmatches] [-verbose] [-chr chromosome [-range range]] [-hide] [-exclusive] [-thresholdoverride num] -- filelist\n";
 }
 
 usage() if ( @ARGV < 1 or
@@ -73,19 +73,24 @@ my $outputdata = {};
 my $uid;
 
 sub read_line
+#reads a single line from a 23andMe ancestry finder output file and adds it to our dataset
 {
-    my $p1 = mask_name(shift);
+    #two parameters: the owner of the file and the line itself
+    my $u1 = mask_name(shift);
 
+    #break the line into an array
     chomp;
-    $uid ++;
     my @l = split ",";
     map { s/\"//g; } @l;
 
-    my $p2 = mask_name($l[0]);
+    #make sure the name in the file has the same format as the owner name (underscores)
+    my $u2 = mask_name($l[0]);
+    $uid ++;
 
+    #build a link object
     my $link = {
-        p1 => $p1,
-        p2 => $p2,
+        u1 => $u1,
+        u2 => $u2,
         chr => $l[9],
         start => $l[10],
         end => $l[11],
@@ -93,6 +98,7 @@ sub read_line
         id => $uid
     };
 
+    #move along when user has specified a specific chromosome/range and this one doesn't match
     if ( $chr )
     {
         next if ( $link->{chr} ne $chr );
@@ -102,30 +108,37 @@ sub read_line
         }
     }
 
-    #we are making a hash of arrays - each a list of matches for the name in p1
-    $rawdata->{$p1} = {} unless ( $rawdata->{$p1} );
-    $rawdata->{$p1}->{$p2} = {} unless ( $rawdata->{$p1}->{$p2} );
+    #we are making a hash of arrays - each a list of matches for the name in u1
+    $rawdata->{$u1} = {} unless ( $rawdata->{$u1} );
+    $rawdata->{$u1}->{$u2} = {} unless ( $rawdata->{$u1}->{$u2} );
 
-    $rawdata->{$p2} = {} unless $rawdata->{$p2};
-    $rawdata->{$p2}->{$p1} = {} unless ( $rawdata->{$p2}->{$p1} );
+    #do the same for u2. this is because both users may have files and may match each other
+    #we are conservative in what we store. it might be possible to do this more judiciously
+    $rawdata->{$u2} = {} unless $rawdata->{$u2};
+    $rawdata->{$u2}->{$u1} = {} unless ( $rawdata->{$u2}->{$u1} );
+    
     
     my $loc = "$link->{chr}.$link->{start}";
     
-    #add a match to p1's array of matches
-    $rawdata->{$p1}->{$p2}->{$loc} = $link;
-    $rawdata->{$p2}->{$p1}->{$loc} = $link;
+    #add a match to u1's array of matches
+    $rawdata->{$u1}->{$u2}->{$loc} = $link;
+    $rawdata->{$u2}->{$u1}->{$loc} = $link;
 }
 
 sub read_data
 {
+    #given a list of files, read the lines from each
     while ( $_ = shift ) 
     {
+        #we extract the user name from each file name, which follow a particular format
         my $fn = $_;
         s/.*ancestry_finder_//;
         s/_2[0-9]{7}.csv//;
-
         my $name = $_;
+        
         open(INPUT,$fn);
+        
+        #read each line in each file
         while (<INPUT>)
         {
             read_line $name, $_ unless m/Anonymous|MatchName/;
@@ -265,27 +278,27 @@ sub _name
 sub print_results
 {
     #print the header
-    print join(",", ( $outputmode eq "s" ? qw/p1 p2 chr start end cM/ : qw/p1 p2 count cM/ ) )."\n";
+    print join(",", ( $outputmode eq "s" ? qw/u1 u2 chr start end cM/ : qw/u1 u2 count cM/ ) )."\n";
     foreach ( sort ( keys ( %$outputdata ) ) )
     {
         next if ( ! $keep and $foci->{$_} );
         next if $exclude->{$_};
-        my $m1 = $_;
-        foreach ( sort ( keys ( %{$outputdata->{$m1}} ) ) )
+        my $u1 = $_;
+        foreach ( sort ( keys ( %{$outputdata->{$u1}} ) ) )
         {
             next if ( (! $keep) and $foci->{$_} );
             next if $exclude->{$_};
-            my $m2 = $_;
+            my $u2 = $_;
             my $segcount = 0;
             my $cMtotal = 0;
 
-            foreach ( keys %{$rawdata->{$m1}->{$m2}} )
+            foreach ( keys %{$rawdata->{$u1}->{$u2}} )
             {
-                my $link = $rawdata->{$m1}->{$m2}->{$_};
+                my $link = $rawdata->{$u1}->{$u2}->{$_};
 
                 if ( $outputmode eq "s" )
                 {
-                    print join(",",(_name($m1),_name($m2),$link->{chr},$link->{start},$link->{end},$link->{cM}))."\n";
+                    print join(",",(_name($u1),_name($u2),$link->{chr},$link->{start},$link->{end},$link->{cM}))."\n";
                 }
                 else
                 {
@@ -294,7 +307,7 @@ sub print_results
                 }
             }
 
-            print join(",",(_name($m1),_name($m2),$segcount,$cMtotal))."\n" if ( $outputmode eq "p" );
+            print join(",",(_name($u1),_name($u2),$segcount,$cMtotal))."\n" if ( $outputmode eq "p" );
         }
     }
 }
