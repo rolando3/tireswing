@@ -10,6 +10,12 @@ use POSIX qw(floor ceil);
 # 2. What't the threshold; i.e. how many links are required?
 # 3. How many times do we want to iterate?
 
+my $rawdata = {};
+my $newmatches = {};
+my $estdmatches = {};
+my $outputdata = {};
+my $uid;
+
 #these are parameters
 my ( @foci, $foci ); #focal nodes. Should be names as expected in input. Must match exactly
 my ( @exclude, $exclude ) = ( undef, {} ); #individuals to exclude from the map. If individual
@@ -35,42 +41,43 @@ sub usage
     die "perl $0 -f focal_individual [-x exclude_individual] [-d distance] [-o s|p] [-keep|nokeep] [-new|nonew] [-max maxmatches] [-verbose] [-chr chromosome [-range range]] [-hide] [-exclusive] [-thresholdoverride num] -- filelist\n";
 }
 
-usage() if ( @ARGV < 1 or
-    ! GetOptions(
-        'focal|f=s' => \@foci,
-        'exclude|x:s' => \@exclude,
-        'distance|d:i' => \$distance,
-        'output|o:s' => \$outputmode,
-        'keep|k!' => \$keep,
-        'new|n!' => \$keepnew,
-        'max|m:i' => \$max,
-        'verbose|v+' => \$verbose,
-        'chr|c:s' => \$chr,
-        'range:s' => \$range,
-        'hide|h' => \$hide,
-        'exclusive|e!' => \$exclusive,
-        'thresholdoverride|to:i' => \$thresholdoverride,
-        'help|?' => \$help
-    ) or $help );
-
-unless ( ( $outputmode == "s" ) or ( $outputmode == "p" ) ) {
-    die "Invalid output mode. Valid modes are 's' (segments) and 'p' (people).\n"
+sub get_params 
+{
+    usage() if ( @ARGV < 1 or
+        ! GetOptions(
+            'focal|f=s' => \@foci,
+            'exclude|x:s' => \@exclude,
+            'distance|d:i' => \$distance,
+            'output|o:s' => \$outputmode,
+            'keep|k!' => \$keep,
+            'new|n!' => \$keepnew,
+            'max|m:i' => \$max,
+            'verbose|v+' => \$verbose,
+            'chr|c:s' => \$chr,
+            'range:s' => \$range,
+            'hide|h' => \$hide,
+            'exclusive|e!' => \$exclusive,
+            'thresholdoverride|to:i' => \$thresholdoverride,
+            'help|?' => \$help
+        ) or $help );
+    
+    unless ( ( $outputmode == "s" ) or ( $outputmode == "p" ) ) {
+        die "Invalid output mode. Valid modes are 's' (segments) and 'p' (people).\n"
+    }
+    
+    if ( $range ) {
+        die "Range must be accompanied by chromosome specification.\n" unless $chr;
+        foreach ( $range ) { @range = split "-"; }
+        die "Range ($range) must be specified as start-end.\n" unless ( @range == 2 );
+    }
+    
+    map { $exclude->{$_} = 1; } @exclude;
+    map { $foci->{$_} = 1; } @foci;
 }
 
-if ( $range ) {
-    die "Range must be accompanied by chromosome specification.\n" unless $chr;
-    foreach ( $range ) { @range = split "-"; }
-    die "Range ($range) must be specified as start-end.\n" unless ( @range == 2 );
+sub init
+{
 }
-
-map { $exclude->{$_} = 1; } @exclude;
-map { $foci->{$_} = 1; } @foci;
-
-my $rawdata = {};
-my $newmatches = {};
-my $estdmatches = {};
-my $outputdata = {};
-my $uid;
 
 sub read_line
 #reads a single line from a 23andMe ancestry finder output file and adds it to our dataset
@@ -209,10 +216,11 @@ sub find_links
 
 sub find_candidate_links
 {
+    #given a list of names, find all the links that may match that list
     my $result = {};
-    while ( my $ind = shift )
+    foreach ( @_ )
     {
-        foreach ( find_links ( $ind, $rawdata->{$ind} ) )
+        foreach ( find_links ( $_, $rawdata->{$_} ) )
         {
             $result->{$_} = 1 unless ( $estdmatches->{$_} or $exclude->{$_} );
         }
@@ -243,29 +251,27 @@ sub find_links_loop
         #does this new match meet the criteria for being saved?
         if ( keys(%$t) >= $threshold )
         {
-#            warn "$nm has ".keys(%$t)." matches\n";
             add_to_output ( $nm, keys(%$t) );
             $newlyestablished->{$nm} = 1;
         }
 
     }
 
-    my $newnewmatches = find_candidate_links(@newmatchlist);
-
     #move people along
     foreach ( keys ( %$newlyestablished ) )
     {
+        #this is now an established match. will be included in the output unless we're not not keeping new ones
         $estdmatches -> {$_} = 1;
+        #remove them from our list of new matches.
         delete $newmatches->{$_};
+        #if this is the last loop and we're keeping new -- find their links among this group.
         add_to_output ( $_, find_links ( $_, $newlyestablished ) ) if ( $islastloop and $keepnew );
     }
 
     warn "Found ".keys(%$newlyestablished)." new matches (total: ".keys(%$estdmatches).")\n" if $verbose;
 
-    foreach ( keys(%$newnewmatches) )
-    {
-        $newmatches->{$_} = 1;
-    }
+    #now it's time to put together our list of candidate links that match our current new match list
+    map { $newmatches->{$_} = 1; } keys(%{find_candidate_links(@newmatchlist)}) unless $islastloop;
 
 }
 
@@ -341,15 +347,19 @@ sub get_threshold
     } 
     else
     {
-	return ( $matches <= 2 ) ? $matches : floor( log($matches) / ( $exclusive ? log(2) : 1 ) );
+        return ( $matches <= 2 ) ? $matches : floor( log($matches) / ( $exclusive ? log(2) : 1 ) );
     }
 }
 
 sub main
 {
+    #initialize variables
+    init();
+    #get parameters from command line (or wherever?)
+    get_params();
     #match
     read_data(@ARGV);
-    #gets our focal nodes and establishes connections. then
+    #gets our focal nodes and establishes connections between them
     add_foci();
     #work our way out
     for ( my $i = 1; $i <= $distance; $i++ )
