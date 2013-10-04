@@ -32,7 +32,7 @@ my $help;
 
 sub usage
 {
-    die "perl afscan.pl -f focal_individual [-x exclude_individual] [-d distance] [-o s|p] [-keep|nokeep] [-new|nonew] [-max maxmatches] [-chr chromosome [-range range]] [-hide] filelist\n";
+    die "perl $0 -f focal_individual [-x exclude_individual] [-d distance] [-o s|p] [-keep|nokeep] [-new|nonew] [-max maxmatches] [-chr chromosome [-range range]] [-hide] filelist\n";
 }
 
 usage() if ( @ARGV < 1 or
