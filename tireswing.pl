@@ -70,54 +70,69 @@ my $rawdata = {};
 my $newmatches = {};
 my $estdmatches = {};
 my $outputdata = {};
+my $uid;
+
+sub read_line
+{
+    my $p1 = mask_name(shift);
+
+    chomp;
+    $uid ++;
+    my @l = split ",";
+    map { s/\"//g; } @l;
+
+    my $p2 = mask_name($l[0]);
+
+    my $link = {
+        p1 => $p1,
+        p2 => $p2,
+        chr => $l[9],
+        start => $l[10],
+        end => $l[11],
+        cM => $l[13],
+        id => $uid
+    };
+
+    if ( $chr )
+    {
+        next if ( $link->{chr} ne $chr );
+        if ( $range )
+        {
+            next if ( ( $link->{start} > $range[1] ) or ( $link->{end} < $range[0] ) );
+        }
+    }
+
+    #we are making a hash of arrays - each a list of matches for the name in p1
+    $rawdata->{$p1} = {} unless ( $rawdata->{$p1} );
+    $rawdata->{$p1}->{$p2} = {} unless ( $rawdata->{$p1}->{$p2} );
+
+    $rawdata->{$p2} = {} unless $rawdata->{$p2};
+    $rawdata->{$p2}->{$p1} = {} unless ( $rawdata->{$p2}->{$p1} );
+    
+    my $loc = "$link->{chr}.$link->{start}";
+    
+    #add a match to p1's array of matches
+    $rawdata->{$p1}->{$p2}->{$loc} = $link;
+    $rawdata->{$p2}->{$p1}->{$loc} = $link;
+}
 
 sub read_data
 {
-    my $uid;
-    while (<>)
+    while ( $_ = shift ) 
     {
-        chomp;
-        $uid ++;
-        my @l = split ",";
-        map { s/\"//g; } @l;
+        my $fn = $_;
+        s/.*ancestry_finder_//;
+        s/_2[0-9]{7}.csv//;
 
-        my $p1 = mask_name($l[0]);
-        my $p2 = mask_name($l[1]);
-
-        my $link = {
-            p1 => $p1,
-            p2 => $p2,
-            chr => $l[10],
-            start => $l[11],
-            end => $l[12],
-            cM => $l[14],
-            id => $uid
-        };
-
-        if ( $chr )
+        my $name = $_;
+        open(INPUT,$fn);
+        while (<INPUT>)
         {
-            next if ( $link->{chr} ne $chr );
-            if ( $range )
-            {
-                next if ( ( $link->{start} > $range[1] ) or ( $link->{end} < $range[0] ) );
-            }
+            read_line $name, $_ unless m/Anonymous|MatchName/;
         }
 
-        #we are making a hash of arrays - each a list of matches for the name in p1
-        $rawdata->{$p1} = {} unless ( $rawdata->{$p1} );
-        $rawdata->{$p1}->{$p2} = {} unless ( $rawdata->{$p1}->{$p2} );
-
-        $rawdata->{$p2} = {} unless $rawdata->{$p2};
-        $rawdata->{$p2}->{$p1} = {} unless ( $rawdata->{$p2}->{$p1} );
-        
-        my $loc = "$link->{chr}.$link->{start}";
-        
-        #add a match to p1's array of matches
-        $rawdata->{$p1}->{$p2}->{$loc} = $link;
-        $rawdata->{$p2}->{$p1}->{$loc} = $link;
-
+        close INPUT;
     }
-
     warn "Read $uid matches...\n" if $verbose;
 }
 
@@ -320,7 +335,7 @@ sub get_threshold
 sub main
 {
     #match
-    read_data();
+    read_data(@ARGV);
     #gets our focal nodes and establishes connections. then
     add_foci();
     #work our way out
