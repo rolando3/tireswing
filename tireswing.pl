@@ -33,6 +33,7 @@ my $max; #maximum number of vertices to output - not exactly what we do
 my $hide; #if true then hashes names to protect the innocent
 my $thresholdoverride;
 my $exclusive;
+my $minsegmentlength;
 
 my $help;
 
@@ -53,6 +54,7 @@ sub get_params
             'new|n!' => \$keepnew,
             'max|m:i' => \$max,
             'verbose|v+' => \$verbose,
+            'min-segment-length|msl:i' => \$minsegmentlength,
             'chr|c:s' => \$chr,
             'range:s' => \$range,
             'hide|h' => \$hide,
@@ -113,6 +115,11 @@ sub read_line
         {
             next if ( ( $link->{start} > $range[1] ) or ( $link->{end} < $range[0] ) );
         }
+    }
+    
+    if ( $minsegmentlength ) 
+    {
+        next if ( $link->{cM} < $minsegmentlength );
     }
 
     #we are making a hash of arrays - each a list of matches for the name in u1
@@ -347,8 +354,11 @@ sub get_threshold
     } 
     else
     {
-        return ( $matches <= 2 ) ? $matches : floor( log($matches) / ( $exclusive ? log(2) : 1 ) );
+        my $t = ( $matches <= 2 ) ? $matches : floor( log($matches) / ( $exclusive ? log(2) : 1 ) );
+        return ( $t <= 1 ) ? 2 : $t;
     }
+    
+    return 2;
 }
 
 sub main
