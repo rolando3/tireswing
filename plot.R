@@ -1,7 +1,7 @@
 require(igraph)
 palette(sample(rainbow(16),16))
 
-function(filename) {
+cMap <- function(filename) {
    df <- read.csv(filename)
    g <- graph.data.frame(df,directed=FALSE)
    c <- walktrap.community(g)
@@ -11,3 +11,15 @@ function(filename) {
    plot(g,vertex.label.cex=5/8,vertex.label.family="Helvetica")
 }
 
+mapDir < function(path=".")
+{
+	i = 0
+	for(file in list.files(path=path,pattern=".csv"))
+	{ 
+		i = i + 1
+		cMap(file)
+		name<-substr(file,1,nchar(file)-4)
+		title(name)
+		quartz.save(type="pdf",paste(i,". Graph_",name,".pdf",sep=""))
+	}
+}
