@@ -11,7 +11,7 @@ cMap <- function(filename) {
    plot(g,vertex.label.cex=5/8,vertex.label.family="Helvetica")
 }
 
-mapDir < function(path=".")
+mapDir <- function(path=".")
 {
 	i = 0
 	for(file in list.files(path=path,pattern=".csv"))
