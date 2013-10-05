@@ -7,7 +7,7 @@ cMap <- function(filename) {
    c <- walktrap.community(g)
    E(g)$width <- log(df$cM)
    V(g)$color <- c$membership
-   par(mai=c(0,0,0,0))
+   par(mai=c(0,0,1,0))
    plot(g,vertex.label.cex=5/8,vertex.label.family="Helvetica")
 }
 
@@ -20,6 +20,6 @@ mapDir <- function(path=".")
 		cMap(file)
 		name<-substr(file,1,nchar(file)-4)
 		title(name)
-		quartz.save(type="pdf",paste(i,". Graph_",name,".pdf",sep=""))
+		quartz.save(type="pdf",paste(path,"/",i,". Graph_",name,".pdf",sep=""))
 	}
 }
