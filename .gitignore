@@ -1,3 +1,5 @@
 allmatches.txt
 *.pdf
 *.csv
+.RData
+.Rhistory
