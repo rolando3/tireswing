@@ -11,35 +11,70 @@ use POSIX qw(floor ceil);
 # 3. How many times do we want to iterate?
 
 my $rawdata = {};
-my $newmatches = {};
 my $estdmatches = {};
 my $outputdata = {};
+my $outputcounts = {};
 my $uid;
 
 #these are parameters
 my ( @foci, $foci ); #focal nodes. Should be names as expected in input. Must match exactly
-my ( @exclude, $exclude ) = ( undef, {} ); #individuals to exclude from the map. If individual
-                                           #is in @foci then this just prevents printing. if
-                                           #not in foci then this individual is ignored when
-                                           #walking the graph
+my ( @exclude, $exclude ); #individuals to exclude from the map. If individual
+                           #is in @foci then this just prevents printing. if
+                           #not in foci then this individual is ignored when
+                           #walking the graph
 my $distance=1; #Maximum iterations
-my $keep=1; #keep the focal individuals
+my $keepfocal=1; #keep the focal individuals
 my $keepnew=1; #on the last iteration, find links between newly discovered individuals
 my $verbose; #if true sends warnings of progress to stderr
 my $chr; #limit to a single chromosome
 my ( $range, @range ); #limit to a range on a given chromosome (e.g., 29-35)
 my $outputmode = "s"; #Type of output. s = one row per segment, p = one row per person/person match
-my $max; #maximum number of vertices to output - not exactly what we do
+my $nodelimit; #maximum number of vertices to output - not exactly what we do
 my $hide; #if true then hashes names to protect the innocent
 my $thresholdoverride;
 my $exclusive;
 my $minsegmentlength;
+my $multimatch;
 
 my $help;
 
 sub usage
 {
-    die "perl $0 -f focal_individual [-x exclude_individual] [-d distance] [-o s|p] [-keep|nokeep] [-new|nonew] [-max maxmatches] [-verbose] [-chr chromosome [-range range]] [-hide] [-exclusive] [-thresholdoverride num] -- filelist\n";
+    die "perl $0 -f focal_individual [-x exclude_individual] [-d distance] [-o s|p] [-multimatch] [-limit limit] [-verbose] [-chr chromosome [-range range]] [-hide] [-exclusive] [-thresholdoverride num] -- filelist\n";
+}
+#[-keep|nokeep] [-new|nonew] 
+
+sub main
+{
+    #get parameters from command line (or wherever?)
+    get_params();
+    
+    my $starttime = time();
+    my $newmatches = {};
+    
+    #match
+    read_data(@ARGV);
+    
+    warn "Time to read data: ".(time - $starttime)."\n" if $verbose;
+    
+    #gets our focal nodes and establishes connections between them
+    $newmatches = add_foci();
+    #work our way out
+    for ( my $i = 1; $i <= $distance; $i++ )
+    {
+        $newmatches = extend_distance ( $i, $newmatches );
+        if ( $nodelimit and ( keys(%$estdmatches) > $nodelimit ) )
+        {
+            warn "Maximum node count ($nodelimit) exceeded (".keys(%$estdmatches).").\n";
+            last;
+        }
+    }
+
+    #print all results
+    print_results();
+
+    warn "Time elapsed: ".(time - $starttime)."\n" if $verbose;
+
 }
 
 sub get_params 
@@ -50,16 +85,17 @@ sub get_params
             'exclude|x:s' => \@exclude,
             'distance|d:i' => \$distance,
             'output|o:s' => \$outputmode,
-            'keep|k!' => \$keep,
-            'new|n!' => \$keepnew,
-            'max|m:i' => \$max,
+            'limit|l:i' => \$nodelimit,
             'verbose|v+' => \$verbose,
             'min-segment-length|msl:i' => \$minsegmentlength,
+            'multimatch|mm' => \$multimatch,
             'chr|c:s' => \$chr,
             'range:s' => \$range,
             'hide|h' => \$hide,
             'exclusive|e!' => \$exclusive,
             'thresholdoverride|to:i' => \$thresholdoverride,
+            'keepnew!' => \$keepnew,
+            'keepfocal!' => \$keepfocal,
             'help|?' => \$help
         ) or $help );
     
@@ -75,17 +111,31 @@ sub get_params
     
     map { $exclude->{$_} = 1; } @exclude;
     map { $foci->{$_} = 1; } @foci;
-}
+    
+    if ( $verbose )
+    {
+        warn "Parameters:\n";
+        warn "  Foci: ".join(", ",@foci)."\n";
+        warn "  Exclude: ".join(", ",@exclude)."\n" if @exclude;
+        warn "  Distance: $distance\n";
+        warn "  Output mode: $outputmode\n";
+        warn "  Limit: ".($nodelimit || "N/A")."\n";
+        warn "  Minimum segment length: ".($minsegmentlength||"N/A")."\n";
+        warn "  Chromosome: ".($chr || "ALL")."\n";
+        warn "  Chromosome Range: ".($range || "N/A")."\n";
+        warn "  Limit output to nodes with multiple matches: $multimatch\n";
+        warn "  Hash non-focal individuals' names: ".($hide||"N/A")."\n";
+        warn "  Exclusive thresholds: ".($exclusive||"N/A")."\n";
+        warn "  Threshold overrides: ".($thresholdoverride||"N/A")."\n";
+    }
 
-sub init
-{
 }
 
 sub read_line
 #reads a single line from a 23andMe ancestry finder output file and adds it to our dataset
 {
     #two parameters: the owner of the file and the line itself
-    my $u1 = mask_name(shift);
+    my $u1 = _23andme_name_mask(shift);
 
     #break the line into an array
     chomp;
@@ -93,10 +143,10 @@ sub read_line
     map { s/\"//g; } @l;
 
     #make sure the name in the file has the same format as the owner name (underscores)
-    my $u2 = mask_name($l[0]);
+    my $u2 = _23andme_name_mask($l[0]);
     $uid ++;
 
-    #build a link object
+    #build a link
     my $link = {
         u1 => $u1,
         u2 => $u2,
@@ -107,20 +157,8 @@ sub read_line
         id => $uid
     };
 
-    #move along when user has specified a specific chromosome/range and this one doesn't match
-    if ( $chr )
-    {
-        next if ( $link->{chr} ne $chr );
-        if ( $range )
-        {
-            next if ( ( $link->{start} > $range[1] ) or ( $link->{end} < $range[0] ) );
-        }
-    }
-    
-    if ( $minsegmentlength ) 
-    {
-        next if ( $link->{cM} < $minsegmentlength );
-    }
+    #discard this link if check_link says it's not worthy
+    next unless check_link ( $link );
 
     #we are making a hash of arrays - each a list of matches for the name in u1
     $rawdata->{$u1} = {} unless ( $rawdata->{$u1} );
@@ -131,7 +169,6 @@ sub read_line
     $rawdata->{$u2} = {} unless $rawdata->{$u2};
     $rawdata->{$u2}->{$u1} = {} unless ( $rawdata->{$u2}->{$u1} );
     
-    
     my $loc = "$link->{chr}.$link->{start}";
     
     #add a match to u1's array of matches
@@ -141,6 +178,7 @@ sub read_line
 
 sub read_data
 {
+    warn "Opening @_ files..." if ( $verbose > 1 );
     #given a list of files, read the lines from each
     while ( $_ = shift ) 
     {
@@ -149,7 +187,8 @@ sub read_data
         s/.*ancestry_finder_//;
         s/_2[0-9]{7}.csv//;
         my $name = $_;
-        
+     
+        warn "Opening $fn...\n" if ( $verbose > 1 );
         open(INPUT,$fn);
         
         #read each line in each file
@@ -184,7 +223,7 @@ sub add_foci
 
     map { add_to_output ( $_, find_links ( $_, $estdmatches ) ); } @f;
 
-    $newmatches = find_candidate_links ( @f )
+    return find_candidate_links ( @f )
 }
 
 sub add_to_output
@@ -194,6 +233,8 @@ sub add_to_output
     foreach ( @t )
     {
         die "what is going on here?\n" if ($nm eq $_);
+        $outputcounts->{$nm} ++;
+        $outputcounts->{$_} ++;
         if ( $nm gt $_ ) {
             $outputdata->{$_} = {} unless $outputdata->{$_};
             $outputdata->{$_}->{$nm} = 1;
@@ -217,7 +258,6 @@ sub find_links
         push ( @t, $_ ) if ( $rawdata->{$source}->{$_} );
     }
 
-#    print uc($source)." @t\n";
     return @t;
 }
 
@@ -236,9 +276,31 @@ sub find_candidate_links
     return $result;
 }
 
-sub find_links_loop
+sub check_link
 {
-    my $loopcount = shift;
+    my $link = shift;
+    #move along when user has specified a specific chromosome/range and this one doesn't match
+    if ( $chr )
+    {
+        return 0 if ( $link->{chr} ne $chr );
+        if ( $range )
+        {
+            return 0 if ( ( $link->{start} > $range[1] ) or ( $link->{end} < $range[0] ) );
+        }
+    }
+    
+    if ( $minsegmentlength ) 
+    {
+        return 0 if ( $link->{cM} < $minsegmentlength );
+    }
+    
+    return 1;
+}
+
+
+sub extend_distance
+{
+    my ( $loopcount, $newmatches ) = @_;
     my $islastloop = ( $loopcount == $distance );
     my $newlyestablished = {};
     my @newmatchlist = keys %$newmatches;
@@ -253,11 +315,13 @@ sub find_links_loop
         my $t = {};
         my $nm = $_;
 
+        #for each new match we are going to find out which established matches they match
         map { $t->{$_} = 1; } find_links ( $nm, $estdmatches );
 
         #does this new match meet the criteria for being saved?
         if ( keys(%$t) >= $threshold )
         {
+            #add it to the output list and mark it as "newly established"
             add_to_output ( $nm, keys(%$t) );
             $newlyestablished->{$nm} = 1;
         }
@@ -279,28 +343,37 @@ sub find_links_loop
 
     #now it's time to put together our list of candidate links that match our current new match list
     map { $newmatches->{$_} = 1; } keys(%{find_candidate_links(@newmatchlist)}) unless $islastloop;
+    
+    return $newmatches;
 
 }
 
-sub _name
+sub hash_name
 {
-    my $n = shift;
-    return ( $hide and not $foci->{$n} ) ? substr(md5_hex($n),0,8) : $n;
+    return ( $hide and not $foci->{$_[0]} ) ? substr(md5_hex($_[0]),0,8) : $_[0];
 }
 
 sub print_results
 {
+    
+    
+    map { warn "Excluding $_ \n" if $outputcounts->{$_} == 1; } sort(keys(%$outputcounts)) if ( $verbose and $multimatch );
+    
     #print the header
     print join(",", ( $outputmode eq "s" ? qw/u1 u2 chr start end cM/ : qw/u1 u2 count cM/ ) )."\n";
     foreach ( sort ( keys ( %$outputdata ) ) )
     {
-        next if ( ! $keep and $foci->{$_} );
+        next if ( ! $keepfocal and $foci->{$_} );
         next if $exclude->{$_};
+        next if ( $multimatch and $outputcounts->{$_} == 1 );
+
         my $u1 = $_;
         foreach ( sort ( keys ( %{$outputdata->{$u1}} ) ) )
         {
-            next if ( (! $keep) and $foci->{$_} );
+            next if ( ! $keepfocal and $foci->{$_} );
             next if $exclude->{$_};
+            next if ( $multimatch and $outputcounts->{$_} == 1 );
+
             my $u2 = $_;
             my $segcount = 0;
             my $cMtotal = 0;
@@ -311,34 +384,52 @@ sub print_results
 
                 if ( $outputmode eq "s" )
                 {
-                    print join(",",(_name($u1),_name($u2),$link->{chr},$link->{start},$link->{end},$link->{cM}))."\n";
+                    print join(",",(hash_name($u1),hash_name($u2),$link->{chr},$link->{start},$link->{end},$link->{cM}))."\n";
                 }
-                else
-                {
-                    $segcount ++;
+                else { $segcount ++;
                     $cMtotal += $link->{cM};
                 }
             }
 
-            print join(",",(_name($u1),_name($u2),$segcount,$cMtotal))."\n" if ( $outputmode eq "p" );
+            print join(",",(hash_name($u1),hash_name($u2),$segcount,$cMtotal))."\n" if ( $outputmode eq "p" );
         }
     }
 }
 
-sub mask_name
+sub _23andme_name_mask
 {
-
-    my $name = shift;
-
-    foreach ( $name ) {
-        s/ /_/g;
-        s/-/_/g;
-        s/[0-9]/_/g;
-        s/'/_/g;
-        s/\./_/g;
+    foreach ( $_[0] ) {
+        s/[ -'\.]/_/g;
+        s/ñ/n/g;
+#        s/Ñ/N/g;
+#        s/á/a/g;
+#        s/ä/a/g;
+#        s/â/a/g;
+#        s/à/a/g;
+#        s/ã/a/g;
+#        s/å/a/g;
+#        s/é/e/g;
+#        s/ë/e/g;
+#        s/ê/e/g;
+#        s/è/e/g;
+#        s/í/i/g;
+#        s/ï/i/g;
+#        s/î/i/g;
+#        s/ì/i/g;
+        s/ó/o/g;
+#        s/ö/o/g;
+#        s/ô/o/g;
+#        s/ò/o/g;
+#        s/ø/o/g;
+#        s/[úüûù]/u/g;
+#        s/[ÁÄÂÀÃÅ]/A/g;
+#        s/[ÉËÊÈ]/E/g;
+#        s/[ÍÏÍÌ]/I/g;
+#        s/[ÓÖÔÒØ]/O/g;
+#        s/[ÚÜÛÙ]/U/g;
     }
 
-    return $name;
+    return $_[0];
 }
 
 sub get_threshold
@@ -359,30 +450,6 @@ sub get_threshold
     }
     
     return 2;
-}
-
-sub main
-{
-    #initialize variables
-    init();
-    #get parameters from command line (or wherever?)
-    get_params();
-    #match
-    read_data(@ARGV);
-    #gets our focal nodes and establishes connections between them
-    add_foci();
-    #work our way out
-    for ( my $i = 1; $i <= $distance; $i++ )
-    {
-        find_links_loop ( $i );
-        if ( $max and ( keys(%$estdmatches) > $max ) )
-        {
-            warn "Maximum node count ($max) exceeded (".keys(%$estdmatches).").\n";
-            last;
-        }
-    }
-    #print all results
-    print_results();
 }
 
 main();
