@@ -14,6 +14,7 @@ my $rawdata = {};
 my $estdmatches = {};
 my $outputdata = {};
 my $outputcounts = {};
+my $affiles = {};
 my $uid;
 
 #these are parameters
@@ -187,6 +188,7 @@ sub read_data
         s/.*ancestry_finder_//;
         s/_2[0-9]{7}.csv//;
         my $name = $_;
+        $affiles->{$name} = 1;
      
         warn "Opening $fn...\n" if ( $verbose > 1 );
         open(INPUT,$fn);
@@ -348,11 +350,6 @@ sub extend_distance
 
 }
 
-sub hash_name
-{
-    return ( $hide and not $foci->{$_[0]} ) ? substr(md5_hex($_[0]),0,8) : $_[0];
-}
-
 sub print_results
 {
     
@@ -384,14 +381,14 @@ sub print_results
 
                 if ( $outputmode eq "s" )
                 {
-                    print join(",",(hash_name($u1),hash_name($u2),$link->{chr},$link->{start},$link->{end},$link->{cM}))."\n";
+                    print join(",",(get_output_name($u1),get_output_name($u2),$link->{chr},$link->{start},$link->{end},$link->{cM}))."\n";
                 }
                 else { $segcount ++;
                     $cMtotal += $link->{cM};
                 }
             }
 
-            print join(",",(hash_name($u1),hash_name($u2),$segcount,$cMtotal))."\n" if ( $outputmode eq "p" );
+            print join(",",(get_output_name($u1),get_output_name($u2),$segcount,$cMtotal))."\n" if ( $outputmode eq "p" );
         }
     }
 }
@@ -430,6 +427,36 @@ sub _23andme_name_mask
     }
 
     return $_[0];
+}
+
+sub get_output_name
+{
+    my $o = shift;
+    my $_ = $o;
+    s/_/ /g;
+    s/\W/ /g;              # convert others to spaces
+    s/^\s+//;              # remove leading spaces
+    s/\s+$//;              # remove trailing spaces
+    
+    my $_ = ( $hide and not $foci->{$o} ) ? substr(md5_hex($_),0,8) : $_;
+    if ( $foci->{$o} )
+    {
+        $_ = uc($_);
+    }
+    else
+    {
+        $_ = cc($_);
+    }
+    $_ = "* $_ *" if $affiles->{$o};
+    return $_;
+}
+
+sub cc
+{
+    $_ = lc(shift);
+    s/\s+(.)/ \u$1/g;       # remove other spaces and upcase next letter
+    s/^(.)/\u$1/;          # downcase first letter
+    return $_;
 }
 
 sub get_threshold
