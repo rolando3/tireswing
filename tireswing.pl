@@ -441,14 +441,7 @@ sub get_output_name
     s/\s+$//;              # remove trailing spaces
     
     my $_ = ( $hide and not $foci->{$o} ) ? substr(md5_hex($_),0,8) : $_;
-    if ( $foci->{$o} )
-    {
-        $_ = uc($_);
-    }
-    else
-    {
-        $_ = cc($_);
-    }
+    $_ = ( $foci->{$o} ) ? uc($_) : cc($_);
     $_ = "* $_ *" if $affiles->{$o};
     return $_;
 }
