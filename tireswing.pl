@@ -89,7 +89,7 @@ sub get_params
             'output|o:s' => \$outputmode,
             'limit|l:i' => \$nodelimit,
             'verbose|v+' => \$verbose,
-            'min-segment-length|msl:i' => \$minsegmentlength,
+            'min-segment-length|msl:f' => \$minsegmentlength,
             'multimatch|mm' => \$multimatch,
             'chr|c:s' => \$chr,
             'range:s' => \$range,
@@ -208,6 +208,7 @@ sub read_data
 
 sub add_foci
 {
+    my @missing;
     foreach ( @foci )
     {
         if ( $rawdata->{$_} )
@@ -216,12 +217,13 @@ sub add_foci
         }
         else
         {
-            warn "$_ not found.\n";
+            push @missing, $_;
         }
     }
+    
+    die "Invalid foci: ".join(",",@missing).". Check spelling and underscores/spaces.\n" if ( @missing );
 
     my @f = keys(%$estdmatches);
-    die "No valid foci given. Check spelling and underscores/spaces.\n" if ( @f eq 0 );
 
     warn "Added ".@f." focal match(es)...\n" if $verbose;
 
