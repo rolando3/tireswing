@@ -44,21 +44,21 @@ sub usage
 {
     die "perl $0 -f focal_individual [-x exclude_individual] [-d distance] [-o s|p] [-multimatch] [-limit limit] [-verbose] [-chr chromosome [-range range]] [-hide] [-exclusive] [-thresholdoverride num] -- filelist\n";
 }
-#[-keep|nokeep] [-new|nonew] 
+#[-keep|nokeep] [-new|nonew]
 
 sub main
 {
     #get parameters from command line (or wherever?)
     get_params();
-    
+
     my $starttime = time();
     my $newmatches = {};
-    
+
     #match
     read_data(@ARGV);
-    
+
     warn "Time to read data: ".(time - $starttime)."\n" if $verbose;
-    
+
     #gets our focal nodes and establishes connections between them
     $newmatches = add_foci();
     #work our way out
@@ -79,7 +79,7 @@ sub main
 
 }
 
-sub get_params 
+sub get_params
 {
     usage() if ( @ARGV < 1 or
         ! GetOptions(
@@ -101,20 +101,20 @@ sub get_params
             'header!' => \$header,
             'help|?' => \$help
         ) or $help );
-    
+
     unless ( ( $outputmode == "s" ) or ( $outputmode == "p" ) ) {
         die "Invalid output mode. Valid modes are 's' (segments) and 'p' (people).\n"
     }
-    
+
     if ( $range ) {
         die "Range must be accompanied by chromosome specification.\n" unless $chr;
         foreach ( $range ) { @range = split "-"; }
         die "Range ($range) must be specified as start-end.\n" unless ( @range == 2 );
     }
-    
+
     map { $exclude->{$_} = 1; } @exclude;
     map { $foci->{$_} = 1; } @foci;
-    
+
     if ( $verbose )
     {
         warn "Parameters:\n";
@@ -156,7 +156,7 @@ sub read_line
         chr => $l[9],
         start => $l[10],
         end => $l[11],
-        cM => $l[13],
+        cM => $l[12],
         id => $uid
     };
 
@@ -171,9 +171,9 @@ sub read_line
     #we are conservative in what we store. it might be possible to do this more judiciously
     $rawdata->{$u2} = {} unless $rawdata->{$u2};
     $rawdata->{$u2}->{$u1} = {} unless ( $rawdata->{$u2}->{$u1} );
-    
+
     my $loc = "$link->{chr}.$link->{start}";
-    
+
     #add a match to u1's array of matches
     $rawdata->{$u1}->{$u2}->{$loc} = $link;
     $rawdata->{$u2}->{$u1}->{$loc} = $link;
@@ -183,7 +183,7 @@ sub read_data
 {
     warn "Opening @_ files..." if ( $verbose > 1 );
     #given a list of files, read the lines from each
-    while ( $_ = shift ) 
+    while ( $_ = shift )
     {
         #we extract the user name from each file name, which follow a particular format
         my $fn = $_;
@@ -191,10 +191,10 @@ sub read_data
         s/_2[0-9]{7}.csv//;
         my $name = $_;
         $affiles->{$name} = 1;
-     
+
         warn "Opening $fn...\n" if ( $verbose > 1 );
         open(INPUT,$fn);
-        
+
         #read each line in each file
         while (<INPUT>)
         {
@@ -220,7 +220,7 @@ sub add_foci
             push @missing, $_;
         }
     }
-    
+
     die "Invalid foci: ".join(",",@missing).". Check spelling and underscores/spaces.\n" if ( @missing );
 
     my @f = keys(%$estdmatches);
@@ -294,12 +294,12 @@ sub check_link
             return 0 if ( ( $link->{start} > $range[1] ) or ( $link->{end} < $range[0] ) );
         }
     }
-    
-    if ( $minsegmentlength ) 
+
+    if ( $minsegmentlength )
     {
         return 0 if ( $link->{cM} < $minsegmentlength );
     }
-    
+
     return 1;
 }
 
@@ -349,19 +349,18 @@ sub extend_distance
 
     #now it's time to put together our list of candidate links that match our current new match list
     map { $newmatches->{$_} = 1; } keys(%{find_candidate_links(@newmatchlist)}) unless $islastloop;
-    
+
     return $newmatches;
 
 }
 
 sub print_results
 {
-    
-    
+
     map { warn "Excluding $_ \n" if $outputcounts->{$_} == 1; } sort(keys(%$outputcounts)) if ( $verbose and $multimatch );
-    
+
     #print the header
-    print join(",", ( $outputmode eq "s" ? qw/u1 u2 chr start end cM/ : qw/u1 u2 count cM/ ) )."\n" if ( $header );
+    print join(",", ( $outputmode eq "s" ? qw/u1 u2 chr start end cM u1focal u1data u2focal u2data/ : qw/u1 u2 count cM u1focal u1data u2focal u2data/ ) )."\n" if ( $header );
     foreach ( sort ( keys ( %$outputdata ) ) )
     {
         next if ( ! $keepfocal and $foci->{$_} );
@@ -379,22 +378,37 @@ sub print_results
             my $segcount = 0;
             my $cMtotal = 0;
 
+            my $on1 = get_output_name($u1);
+            my $on2 = get_output_name($u2);
+
             foreach ( keys %{$rawdata->{$u1}->{$u2}} )
             {
                 my $link = $rawdata->{$u1}->{$u2}->{$_};
 
                 if ( $outputmode eq "s" )
                 {
-                    print join(",",(get_output_name($u1),get_output_name($u2),$link->{chr},$link->{start},$link->{end},$link->{cM}))."\n";
+                    print join(",",($on1,$on2,$link->{chr},$link->{start},$link->{end},$link->{cM},is_focal($u1),has_data($u1),is_focal($u2),has_data($u2)))."\n";
                 }
                 else { $segcount ++;
                     $cMtotal += $link->{cM};
                 }
             }
 
-            print join(",",(get_output_name($u1),get_output_name($u2),$segcount,$cMtotal))."\n" if ( $outputmode eq "p" );
+            print join(",",$on1,$on2,$segcount,$cMtotal,is_focal($u1),has_data($u1),is_focal($u2),has_data($u2))."\n" if ( $outputmode eq "p" );
         }
     }
+}
+
+sub is_focal
+{
+    my $n = shift;
+    return $foci->{$n} ? "1" : "0";
+}
+
+sub has_data
+{
+    my $n = shift;
+    return $affiles->{$n} ? 1 : 0;
 }
 
 sub _23andme_name_mask
@@ -441,10 +455,11 @@ sub get_output_name
     s/\W/ /g;              # convert others to spaces
     s/^\s+//;              # remove leading spaces
     s/\s+$//;              # remove trailing spaces
-    
-    my $_ = ( $hide and not $foci->{$o} ) ? substr(md5_hex($_),0,8) : $_;
-    $_ = ( $foci->{$o} ) ? uc($_) : cc($_);
-    $_ = "* $_ *" if $affiles->{$o};
+
+    my $rv = ( $hide and not $foci->{$o} ) ? substr(md5_hex($_),0,8) : $_;
+    return cc($rv);
+#    $_ = ( $foci->{$o} ) ? uc($_) : cc($_);
+#    $_ = "* $_ *" if $affiles->{$o};
     return $_;
 }
 
@@ -464,15 +479,15 @@ sub get_threshold
     my $matches = keys(%$estdmatches);
 
     if ( $loop <= 1 )
-    { 
-        return ( $matches <= 2 ) ? $matches : ceil($matches/2 + $exclusive) 
-    } 
+    {
+        return ( $matches <= 2 ) ? $matches : ceil($matches/2 + $exclusive)
+    }
     else
     {
         my $t = ( $matches <= 2 ) ? $matches : floor( log($matches) / ( $exclusive ? log(2) : 1 ) );
         return ( $t <= 1 ) ? 2 : $t;
     }
-    
+
     return 2;
 }
 
