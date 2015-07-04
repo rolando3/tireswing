@@ -389,7 +389,8 @@ sub print_results
                 {
                     print join(",",($on1,$on2,$link->{chr},$link->{start},$link->{end},$link->{cM},is_focal($u1),has_data($u1),is_focal($u2),has_data($u2)))."\n";
                 }
-                else { $segcount ++;
+                else {
+                    $segcount ++;
                     $cMtotal += $link->{cM};
                 }
             }

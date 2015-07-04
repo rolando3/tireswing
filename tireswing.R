@@ -10,13 +10,15 @@ cMap <- function(filename,use.edge.color=FALSE,use.edge.label=FALSE,use.communit
 		type="person"
 		for(i in (names(df) %in% "chr")) { if(i){type="segment"} }
 		if (use.edge.color) { if( type == "segment" ) { E(g)$color <- df$chr } }
-		if (use.edge.label) { if( type == "segment" ) { E(g)$label <- df$chr } else { E(g)$label <- df$cM } }
+		if (use.edge.label) { if( type == "segment" ) { E(g)$label <- df$chr } else { E(g)$label <- df$cM } }
 		if (use.community)
 		{
 			com <- vertex.community(g)
 			V(g)$color <- com$membership
 		}
-		par(mai=c(0,0,1,0))
+		topm=0
+		if (title!="") { topm = 1 }
+		par(mai=c(0,0,topm,0))
 		plot(g,vertex.label.cex=cex,edge.label.cex=cex,vertex.label.family=font,edge.label.family=font)
 		title(title)
 		if ( outputfile != "" )
@@ -25,6 +27,7 @@ cMap <- function(filename,use.edge.color=FALSE,use.edge.label=FALSE,use.communit
 		}
 	}
 }
+
 mapDir <- function(path=".",numfiles=FALSE)
 {
 	i = 0
