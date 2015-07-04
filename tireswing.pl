@@ -421,47 +421,47 @@ sub _23andme_name_mask
     }
 
     return $_[0];
-    #        s/Ñ/N/g;
-    #        s/á/a/g;
-    #        s/ä/a/g;
-    #        s/â/a/g;
-    #        s/à/a/g;
-    #        s/ã/a/g;
-    #        s/å/a/g;
-    #        s/é/e/g;
-    #        s/ë/e/g;
-    #        s/ê/e/g;
-    #        s/è/e/g;
-    #        s/í/i/g;
-    #        s/ï/i/g;
-    #        s/î/i/g;
-    #        s/ì/i/g;
-    #        s/ö/o/g;
-    #        s/ô/o/g;
-    #        s/ò/o/g;
-    #        s/ø/o/g;
-    #        s/[úüûù]/u/g;
-    #        s/[ÁÄÂÀÃÅ]/A/g;
-    #        s/[ÉËÊÈ]/E/g;
-    #        s/[ÍÏÍÌ]/I/g;
-    #        s/[ÓÖÔÒØ]/O/g;
-    #        s/[ÚÜÛÙ]/U/g;
+#        s/Ñ/N/g;
+#        s/á/a/g;
+#        s/ä/a/g;
+#        s/â/a/g;
+#        s/à/a/g;
+#        s/ã/a/g;
+#        s/å/a/g;
+#        s/é/e/g;
+#        s/ë/e/g;
+#        s/ê/e/g;
+#        s/è/e/g;
+#        s/í/i/g;
+#        s/ï/i/g;
+#        s/î/i/g;
+#        s/ì/i/g;
+#        s/ö/o/g;
+#        s/ô/o/g;
+#        s/ò/o/g;
+#        s/ø/o/g;
+#        s/[úüûù]/u/g;
+#        s/[ÁÄÂÀÃÅ]/A/g;
+#        s/[ÉËÊÈ]/E/g;
+#        s/[ÍÏÍÌ]/I/g;
+#        s/[ÓÖÔÒØ]/O/g;
+#        s/[ÚÜÛÙ]/U/g;
 }
 
 sub get_output_name
 {
     my $o = shift;
-    my $_ = $o;
-    s/_/ /g;
-    s/\W/ /g;              # convert others to spaces
-    s/^\s+//;              # remove leading spaces
-    s/\s+$//;              # remove trailing spaces
 
-    my $rv = ( $hide and not $foci->{$o} ) ? substr(md5_hex($_),0,8) : $_;
+    foreach ( $o) {
+        s/_/ /g;
+        s/\W/ /g;              # convert others to spaces
+        s/^\s+//;              # remove leading spaces
+        s/\s+$//;              # remove trailing spaces
+        $o = $_;
+    }
+
+    my $rv = ( $hide and not $foci->{$o} ) ? substr(md5_hex($o),0,8) : $o;
     return cc($rv);
-#    $_ = ( $foci->{$o} ) ? uc($_) : cc($_);
-#    $_ = "* $_ *" if $affiles->{$o};
-    return $_;
 }
 
 sub cc
