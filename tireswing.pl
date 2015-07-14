@@ -30,7 +30,6 @@ my $header = 1;
 my $verbose; #if true sends warnings of progress to stderr
 my $chr; #limit to a single chromosome
 my ( $range, @range ); #limit to a range on a given chromosome (e.g., 29-35)
-my $outputmode = "s"; #Type of output. s = one row per segment, p = one row per person/person match
 my $nodelimit; #maximum number of vertices to output - not exactly what we do
 my $hide; #if true then hashes names to protect the innocent
 my $thresholdoverride;
@@ -86,7 +85,6 @@ sub get_params
             'focal|f=s' => \@foci,
             'exclude|x:s' => \@exclude,
             'distance|d:i' => \$distance,
-            'output|o:s' => \$outputmode,
             'limit|l:i' => \$nodelimit,
             'verbose|v+' => \$verbose,
             'min-segment-length|msl:f' => \$minsegmentlength,
@@ -101,10 +99,6 @@ sub get_params
             'header!' => \$header,
             'help|?' => \$help
         ) or $help );
-
-    unless ( ( $outputmode == "s" ) or ( $outputmode == "p" ) ) {
-        die "Invalid output mode. Valid modes are 's' (segments) and 'p' (people).\n"
-    }
 
     if ( $range ) {
         die "Range must be accompanied by chromosome specification.\n" unless $chr;
@@ -121,7 +115,6 @@ sub get_params
         warn "  Foci: ".join(", ",@foci)."\n";
         warn "  Exclude: ".join(", ",@exclude)."\n" if @exclude;
         warn "  Distance: $distance\n";
-        warn "  Output mode: $outputmode\n";
         warn "  Limit: ".($nodelimit || "N/A")."\n";
         warn "  Minimum segment length: ".($minsegmentlength||"N/A")."\n";
         warn "  Chromosome: ".($chr || "ALL")."\n";
@@ -360,7 +353,7 @@ sub print_results
     map { warn "Excluding $_ \n" if $outputcounts->{$_} == 1; } sort(keys(%$outputcounts)) if ( $verbose and $multimatch );
 
     #print the header
-    print join(",", ( $outputmode eq "s" ? qw/u1 u2 chr start end cM u1focal u1data u2focal u2data/ : qw/u1 u2 count cM u1focal u1data u2focal u2data/ ) )."\n" if ( $header );
+    print join(",", qw/u1 u2 chr start end cM u1focal u1data u2focal u2data/)."\n" if ( $header );
     foreach ( sort ( keys ( %$outputdata ) ) )
     {
         next if ( ! $keepfocal and $foci->{$_} );
@@ -375,9 +368,6 @@ sub print_results
             next if ( $multimatch and $outputcounts->{$_} == 1 );
 
             my $u2 = $_;
-            my $segcount = 0;
-            my $cMtotal = 0;
-
             my $on1 = get_output_name($u1);
             my $on2 = get_output_name($u2);
 
@@ -385,17 +375,8 @@ sub print_results
             {
                 my $link = $rawdata->{$u1}->{$u2}->{$_};
 
-                if ( $outputmode eq "s" )
-                {
-                    print join(",",($on1,$on2,$link->{chr},$link->{start},$link->{end},$link->{cM},is_focal($u1),has_data($u1),is_focal($u2),has_data($u2)))."\n";
-                }
-                else {
-                    $segcount ++;
-                    $cMtotal += $link->{cM};
-                }
+                print join(",",($on1,$on2,$link->{chr},$link->{start},$link->{end},$link->{cM},is_focal($u1),has_data($u1),is_focal($u2),has_data($u2)))."\n";
             }
-
-            print join(",",$on1,$on2,$segcount,$cMtotal,is_focal($u1),has_data($u1),is_focal($u2),has_data($u2))."\n" if ( $outputmode eq "p" );
         }
     }
 }
@@ -414,7 +395,8 @@ sub has_data
 
 sub _23andme_name_mask
 {
-    foreach ( $_[0] ) {
+    foreach ( $_[0] )
+    {
         s/[ -'\.]/_/g;
         s/ñ/n/g;
         s/ó/o/g;
