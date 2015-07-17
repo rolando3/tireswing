@@ -1,7 +1,7 @@
 require(igraph)
 palette(sample(rainbow(16),16))
 
-cMap <- function(filename,chromosome=0,use.edge.color=FALSE,use.edge.label=FALSE,use.community=TRUE,vertex.community=walktrap.community,cex=1,font="Helvetica",title="",outputfile="")
+cMap <- function(filename,chromosome=0,use.edge.color=FALSE,use.edge.label=FALSE,use.community=FALSE,vertex.community=walktrap.community,cex=1,font="Helvetica",title="",outputfile="")
 {
 	links <- read.csv(filename)
 	if(nrow(links)>0) { return }
@@ -19,6 +19,10 @@ cMap <- function(filename,chromosome=0,use.edge.color=FALSE,use.edge.label=FALSE
 	{
 		com <- vertex.community(g)
 		V(g)$color <- com$membership
+	}
+	else
+	{
+		V(g)$color <- people$has.data
 	}
 
 	#handle title
