@@ -30,7 +30,6 @@ my $verbose; #if true sends warnings of progress to stderr
 my $chr; #limit to a single chromosome
 my ( $range, @range ); #limit to a range on a given chromosome (e.g., 29-35)
 my $nodelimit; #maximum number of vertices to output - not exactly what we do
-my $hide; #if true then hashes names to protect the innocent
 my $thresholdoverride;
 my $exclusive;
 my $minsegmentlength;
@@ -40,7 +39,7 @@ my $help;
 
 sub usage
 {
-    die "perl $0 -f focal_individual [-x exclude_individual] [-d distance] [-o s|p] [-multimatch] [-limit limit] [-verbose] [-chr chromosome [-range range]] [-hide] [-exclusive] [-thresholdoverride num] -- filelist\n";
+    die "perl $0 -f focal_individual [-x exclude_individual] [-d distance] [-o s|p] [-multimatch] [-limit limit] [-verbose] [-chr chromosome [-range range]] [-exclusive] [-thresholdoverride num] -- filelist\n";
 }
 #[-keep|nokeep] [-new|nonew]
 
@@ -90,7 +89,6 @@ sub get_params
             'multimatch|mm' => \$multimatch,
             'chr|c:s' => \$chr,
             'range:s' => \$range,
-            'hide|h' => \$hide,
             'exclusive|e!' => \$exclusive,
             'thresholdoverride|to:i' => \$thresholdoverride,
             'keepnew!' => \$keepnew,
@@ -118,7 +116,6 @@ sub get_params
         warn "  Chromosome: ".($chr || "ALL")."\n";
         warn "  Chromosome Range: ".($range || "N/A")."\n";
         warn "  Limit output to nodes with multiple matches: $multimatch\n";
-        warn "  Hash non-focal individuals' names: ".($hide||"N/A")."\n";
         warn "  Exclusive thresholds: ".($exclusive||"N/A")."\n";
         warn "  Threshold overrides: ".($thresholdoverride||"N/A")."\n";
     }
@@ -440,7 +437,6 @@ sub get_output_name
         $o = $_;
     }
 
-    my $rv = ( $hide and not $foci->{$o} ) ? substr(md5_hex($o),0,8) : $o;
     return cc($rv);
 }
 
