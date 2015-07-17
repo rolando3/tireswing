@@ -39,9 +39,8 @@ my $help;
 
 sub usage
 {
-    die "perl $0 -f focal_individual [-x exclude_individual] [-d distance] [-o s|p] [-multimatch] [-limit limit] [-verbose] [-chr chromosome [-range range]] [-exclusive] [-thresholdoverride num] -- filelist\n";
+    die "perl $0 -f focal_individual [-x exclude_individual] [-chr chromosome [-range range]]  [-verbose] -- filelist\n";
 }
-#[-keep|nokeep] [-new|nonew]
 
 sub main
 {
@@ -82,17 +81,17 @@ sub get_params
         ! GetOptions(
             'focal|f=s' => \@foci,
             'exclude|x:s' => \@exclude,
-            'distance|d:i' => \$distance,
-            'limit|l:i' => \$nodelimit,
-            'verbose|v+' => \$verbose,
-            'min-segment-length|msl:f' => \$minsegmentlength,
-            'multimatch|mm' => \$multimatch,
             'chr|c:s' => \$chr,
             'range:s' => \$range,
-            'exclusive|e!' => \$exclusive,
-            'thresholdoverride|to:i' => \$thresholdoverride,
-            'keepnew!' => \$keepnew,
-            'keepfocal!' => \$keepfocal,
+            'ext-distance:i' => \$distance,
+            'ext-exclusive!' => \$exclusive,
+            'ext-keepfocal!' => \$keepfocal,
+            'ext-keepnew!' => \$keepnew,
+            'ext-limit:i' => \$nodelimit,
+            'ext-minlength:f' => \$minsegmentlength,
+            'ext-multimatch' => \$multimatch,
+            'ext-thresholdoverride:i' => \$thresholdoverride,
+            'verbose|v+' => \$verbose,
             'help|?' => \$help
         ) or $help );
 
