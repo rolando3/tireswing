@@ -26,7 +26,6 @@ my ( @exclude, $exclude ); #individuals to exclude from the map. If individual
 my $distance=1; #Maximum iterations
 my $keepfocal=1; #keep the focal individuals
 my $keepnew=1; #on the last iteration, find links between newly discovered individuals
-my $header = 1;
 my $verbose; #if true sends warnings of progress to stderr
 my $chr; #limit to a single chromosome
 my ( $range, @range ); #limit to a range on a given chromosome (e.g., 29-35)
@@ -96,7 +95,6 @@ sub get_params
             'thresholdoverride|to:i' => \$thresholdoverride,
             'keepnew!' => \$keepnew,
             'keepfocal!' => \$keepfocal,
-            'header!' => \$header,
             'help|?' => \$help
         ) or $help );
 
@@ -353,7 +351,7 @@ sub print_results
     map { warn "Excluding $_ \n" if $outputcounts->{$_} == 1; } sort(keys(%$outputcounts)) if ( $verbose and $multimatch );
 
     #print the header
-    print join(",", qw/u1 u2 chr start end cM u1focal u1data u2focal u2data/)."\n" if ( $header );
+    print join(",", qw/u1 u2 chr start end cM u1focal u1data u2focal u2data/)."\n";
     foreach ( sort ( keys ( %$outputdata ) ) )
     {
         next if ( ! $keepfocal and $foci->{$_} );
