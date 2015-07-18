@@ -436,7 +436,7 @@ sub get_output_name
         $o = $_;
     }
 
-    return cc($rv);
+    return cc($o);
 }
 
 sub cc
