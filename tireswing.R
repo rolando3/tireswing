@@ -1,5 +1,4 @@
 require(igraph)
-palette(sample(rainbow(16),16))
 
 cMap <- function(filename,chromosome=0,use.edge.color=FALSE,use.edge.label=FALSE,use.community=FALSE,vertex.community=walktrap.community,cex=1,font="Helvetica",title="",outputfile="")
 {
@@ -22,7 +21,7 @@ cMap <- function(filename,chromosome=0,use.edge.color=FALSE,use.edge.label=FALSE
 	}
 	else
 	{
-		V(g)$color <- people$has.data
+		V(g)$color <- people$has.data + 1 #add one so we don't get clear colors.
 	}
 
 	#handle title
