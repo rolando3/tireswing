@@ -97,7 +97,7 @@ sub get_params
 
     if ( $range ) {
         die "Range must be accompanied by chromosome specification.\n" unless $chr;
-        foreach ( $range ) { @range = split "-"; }
+        for ( $range ) { @range = split "-"; }
         die "Range ($range) must be specified as start-end.\n" unless ( @range == 2 );
     }
 
@@ -424,7 +424,10 @@ sub _normalizeTextSimple
         s/ô/o/g;
         s/ò/o/g;
         s/ø/o/g;
-    #    s/[úüûù]/u/g;
+        s/ú/u/g;
+        s/ü/u/g;
+        s/û/u/g;
+        s/ù/u/g;
     #    s/[ÁÄÂÀÃÅ]/A/g;
     #    s/[ÉËÊÈ]/E/g;
     #    s/[ÍÏÍÌ]/I/g;
