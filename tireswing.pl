@@ -144,7 +144,7 @@ sub read_line
         chr => $l[9],
         start => $l[10],
         end => $l[11],
-        cM => $l[12],
+        cM => $l[13],
         id => $uid
     };
 
