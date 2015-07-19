@@ -273,6 +273,8 @@ sub find_candidate_links
 sub check_link
 {
     my $link = shift;
+    return 0 unless $link->{cM};
+
     #move along when user has specified a specific chromosome/range and this one doesn't match
     if ( $chr )
     {
@@ -429,7 +431,7 @@ sub get_output_name
 {
     my $o = shift;
 
-    foreach ( $o) {
+    foreach ($o) {
         s/_/ /g;
         s/\W/ /g;              # convert others to spaces
         s/^\s+//;              # remove leading spaces
