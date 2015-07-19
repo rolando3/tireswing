@@ -129,6 +129,7 @@ sub read_line
 
     #break the line into an array
     chomp;
+    s/\R\z//; #remove newline line endings
     my @l = split ",";
     map { s/\"//g; } @l;
 
