@@ -3,3 +3,5 @@ allmatches.txt
 *.csv
 .RData
 .Rhistory
+
+*.sh
