@@ -6,6 +6,11 @@ cMap <- function(filename,chromosome=0,use.edge.color=FALSE,use.edge.label=FALSE
 	if(nrow(links)>0) { return }
 	if ( chromosome > 0 ) links <- subset(links,chr==chromosome)
 
+	#make sure these are numeric.
+	links$start <- as.numeric(links$start)
+	links$end <- as.numeric(links$end)
+	links$cM <- as.numeric(links$cM)
+
 	#build a list of our vertices
   people <- unique(rbind(unique(data.frame(name=links$u1,has.data=links$u1data,is.focal=links$u1focal)),unique(data.frame(name=links$u2,has.data=links$u2data,is.focal=links$u2focal))))
 
