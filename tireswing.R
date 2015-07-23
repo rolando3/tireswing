@@ -18,7 +18,7 @@ cMap <- function(filename,chromosome=0,use.edge.color=FALSE,use.edge.label=FALSE
 
   E(g)$width <- log(links$cM)
 	if (use.edge.color) { E(g)$color <- links$chr }
-	if (use.edge.label) { E(g)$label <- links$chr }
+	if (use.edge.label) { E(g)$label <- as.character(links$chr) }
 	if (use.community)
 	{
 		com <- vertex.community(g)
